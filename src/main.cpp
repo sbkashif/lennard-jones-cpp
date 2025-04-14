@@ -8,6 +8,7 @@
 #include "core/system.hpp"
 #include "integrators/velocity_verlet.hpp"
 #include "utils/config_reader.hpp"
+#include "minimizers/minimizer_factory.hpp"
 
 using namespace ljmd;
 
@@ -78,6 +79,13 @@ int main(int argc, char* argv[]) {
         std::size_t numSteps = config.getInt("production_steps", 5000);
         std::size_t outputInterval = config.getInt("output_interval", 50);
         
+        // Read energy minimization parameters
+        bool minimizeEnergy = config.getBool("minimize_energy", false);
+        std::string minimizationAlgorithm = config.getString("minimization_algorithm", "steepest");
+        std::size_t minimizationSteps = config.getInt("minimization_steps", 1000);
+        double minimizationTolerance = config.getDouble("minimization_tolerance", 1e-6);
+        double minimizationStepSize = config.getDouble("minimization_step_size", 0.01);
+        
         // Read output file configuration
         std::string propsFile = config.getString("properties_file", "properties.dat");
         std::string energyFile = config.getString("energy_file", "energy.dat");
@@ -109,6 +117,16 @@ int main(int argc, char* argv[]) {
         std::cout << "Initial temperature: " << temperature << "\n";
         std::cout << "Timestep: " << timestep << "\n";
         std::cout << "Cutoff radius: " << cutoffRadius << "\n";
+        
+        if (minimizeEnergy) {
+            std::cout << "Energy minimization: Enabled\n";
+            std::cout << "Minimization algorithm: " << minimizationAlgorithm << "\n";
+            std::cout << "Minimization steps: " << minimizationSteps << "\n";
+            std::cout << "Minimization tolerance: " << minimizationTolerance << "\n";
+        } else {
+            std::cout << "Energy minimization: Disabled\n";
+        }
+        
         std::cout << "Equilibration steps: " << equilibrationSteps << "\n";
         std::cout << "Production steps: " << numSteps << "\n";
         std::cout << "Output interval: " << outputInterval << "\n";
@@ -121,11 +139,45 @@ int main(int argc, char* argv[]) {
         core::Box box;
         auto system = box.createLJSystem(numParticles, temperature, density, cutoffRadius);
         
-        // Create integrator based on configuration
-        integrators::VelocityVerlet integrator(timestep);  // Currently only one type supported
-        
         // Calculate initial forces
         system.calculateForces();
+        
+        // Save initial configuration
+        saveConfiguration(system, "initial.xyz");
+        
+        // Perform energy minimization if enabled
+        if (minimizeEnergy) {
+            try {
+                std::cout << "------------------------------------------------------\n";
+                std::cout << "Starting energy minimization...\n";
+                
+                // Create and configure minimizer
+                auto minimizer = minimizers::MinimizerFactory::create(minimizationAlgorithm);
+                minimizer->setMaxSteps(minimizationSteps);
+                minimizer->setTolerance(minimizationTolerance);
+                minimizer->setStepSize(minimizationStepSize);
+                
+                // Run minimization
+                minimizer->minimize(system);
+                
+                // Save minimized configuration
+                saveConfiguration(system, "minimized.xyz");
+                
+                std::cout << "Energy minimization completed.\n";
+                std::cout << "------------------------------------------------------\n";
+                
+                // Re-initialize velocities to match desired temperature
+                // after minimization (which may have altered them)
+                system.initializeVelocities(temperature);
+                
+            } catch (const std::exception& e) {
+                std::cerr << "Error during energy minimization: " << e.what() << std::endl;
+                std::cerr << "Continuing with simulation using unminimized structure." << std::endl;
+            }
+        }
+        
+        // Create integrator based on configuration
+        integrators::VelocityVerlet integrator(timestep);  // Currently only one type supported
         
         // Open output files
         std::ofstream propertiesFile(propsFile);

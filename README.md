@@ -6,6 +6,7 @@ A modular C++ library for molecular dynamics simulations of Lennard-Jones partic
 
 - Simulation of Lennard-Jones fluids in 3D with periodic boundary conditions
 - NVE ensemble simulation using Velocity Verlet integrator
+- Energy minimization capabilities to optimize initial configurations
 - Modular design that enables easy extension with:
   - Different integrators
   - Various thermostats and barostats
@@ -69,6 +70,9 @@ The simulation can be configured using a config.ini file. Below is a list of sup
 - `density`: Density in reduced units
 - `temperature`: Initial temperature in reduced units
 - `cutoff_radius`: Cutoff radius for LJ potential
+- `minimize_energy`: Whether to perform energy minimization before simulation (default: false)
+- `minimization_steps`: Maximum number of steps for energy minimization (default: 1000)
+- `minimization_tolerance`: Convergence tolerance for energy minimization (default: 1e-6)
 
 ### Simulation Parameters
 - `timestep`: Integration timestep
@@ -127,6 +131,7 @@ energy_tolerance = 0.01  # Maximum allowed energy drift before warning
 ## Output Files
 
 - `initial.xyz` - Initial configuration of the system
+- `minimized.xyz` - Configuration after energy minimization (if enabled)
 - `final.xyz` - Final configuration of the system
 - `trajectory.xyz` - Complete trajectory for visualization
 - `properties.dat` - Time series of system properties (temperature, energy, etc.)
@@ -139,6 +144,12 @@ energy_tolerance = 0.01  # Maximum allowed energy drift before warning
 1. Create a new class that inherits from the `Integrator` base class
 2. Implement the `step()` method to update the system according to your integration scheme
 3. Register the new integrator in the main program
+
+### Adding a Minimizer
+
+1. Create a new class that inherits from the `Minimizer` base class
+2. Implement the energy minimization algorithm
+3. Register the new minimizer in the main program
 
 ### Adding a Thermostat
 
